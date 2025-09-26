@@ -25,6 +25,7 @@ export interface IUser extends Document {
     orders: Types.ObjectId[]
     lastOrderDate: Date | null
     lastOrder: Types.ObjectId | null
+    _id:Types.ObjectId
 }
 
 interface IUserMethods {
@@ -105,12 +106,12 @@ const userSchema = new mongoose.Schema<IUser, IUserModel, IUserMethods>(
         // Возможно удаление пароля в контроллере создания, т.к. select: false не работает в случае создания сущности https://mongoosejs.com/docs/api/document.html#Document.prototype.toJSON()
         toJSON: {
             virtuals: true,
-            transform: (_doc, ret) => {
-                delete ret.tokens
-                delete ret.password
-                delete ret._id
-                delete ret.roles
-                return ret
+            transform(_doc: any, ret: Record<string, any>) {
+                ret.tokens = undefined;
+                ret.password = undefined;
+                ret._id = undefined;
+                ret.roles = undefined;
+                return ret;
             },
         },
     }

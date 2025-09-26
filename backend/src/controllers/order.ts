@@ -5,6 +5,7 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import { cleanHtml } from '../middlewares/sanitizeHtml'
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
@@ -188,12 +189,12 @@ export const getOrdersCurrentUser = async (
             const searchRegex = new RegExp(search as string, 'i')
             const searchNumber = Number(search)
             const products = await Product.find({ title: searchRegex })
-            const productIds = products.map((product) => product._id)
+            const productIds:Types.ObjectId[] = products.map((product) => product._id as Types.ObjectId)
 
             orders = orders.filter((order) => {
                 // eslint-disable-next-line max-len
                 const matchesProductTitle = order.products.some((product) =>
-                    productIds.some((id) => id.equals(product._id))
+                    productIds.some((id:Types.ObjectId) => id.equals(product._id))
                 )
                 // eslint-disable-next-line max-len
                 const matchesOrderNumber =
@@ -291,11 +292,20 @@ export const createOrder = async (
         const basket: IProduct[] = []
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
+
+        const cleanOrderData: { [key: string]: any } ={}
+        for (let prop in req.body) {
+            cleanOrderData[prop]=cleanHtml(req.body[prop])
+        }
+        
         const { address, payment, phone, total, email, items, comment } =
-            req.body
+            cleanOrderData
+
+        /* const { address, payment, phone, total, email, items, comment } =
+            req.body */
 
         items.forEach((id: Types.ObjectId) => {
-            const product = products.find((p) => p._id.equals(id))
+            const product = products.find((p) => (p._id as Types.ObjectId).equals(id))
             if (!product) {
                 throw new BadRequestError(`Товар с id ${id} не найден`)
             }
