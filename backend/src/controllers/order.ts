@@ -28,13 +28,13 @@ export const getOrders = async (
 
         const user=res.locals.user;
         const safeQuery=sanitizeQueryParams(req.query);
-        const pageNumber = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNumber = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
         const searchTerm = safeQuery.search;
         const safeSearch = sanitizeSearch(searchTerm);
         const searchRegex = new RegExp(safeSearch, 'i');
         const searchNumber = Number(safeSearch);
-        const { limit, page, search, ...otherParams } = safeQuery;
+        
        
 
         if (!user.roles.include(Role.Admin)){
@@ -66,10 +66,10 @@ export const getOrders = async (
                 
                 // Пагинация
                 const totalOrders = filteredOrders.length;
-                const totalPages = Math.ceil(totalOrders / limitNumber);
+                const totalPages = Math.ceil(totalOrders / limit);
                 filteredOrders = filteredOrders.slice(
-                    (pageNumber - 1) * limitNumber,
-                    pageNumber * limitNumber
+                    (page - 1) * limit,
+                    page * limit
                 );
                 
                 const sanitizedOrders = filteredOrders.map(sanitizeOrder);
@@ -79,19 +79,19 @@ export const getOrders = async (
                     pagination: {
                         totalOrders,
                         totalPages,
-                        currentPage: Number(pageNumber),
-                        pageSize: Number(limitNumber),
+                        currentPage: Number(page),
+                        pageSize: Number(limit),
                     },
                 });
             }
             
             const userOrders = await Order.find(userFilters)
                 .populate(['customer', 'products'])
-                .skip((pageNumber - 1) * limitNumber)
-                .limit(limitNumber);
+                .skip((page - 1) * limit)
+                .limit(limit);
             
             const totalOrders = await Order.countDocuments(userFilters);
-            const totalPages = Math.ceil(totalOrders / limitNumber);
+            const totalPages = Math.ceil(totalOrders / limit);
             
             const sanitizedOrders = userOrders.map(sanitizeOrder);
             
@@ -100,8 +100,8 @@ export const getOrders = async (
                 pagination: {
                     totalOrders,
                     totalPages,
-                    currentPage: Number(pageNumber),
-                    pageSize: Number(limitNumber),
+                    currentPage: Number(page),
+                    pageSize: Number(limit),
                 },
             });
         }
@@ -204,8 +204,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(pageNumber) - 1) * Number(limitNumber) },
-            { $limit: Number(limitNumber) },
+            { $skip: (Number(page) - 1) * Number(limit) },
+            { $limit: Number(limit) },
             {
                 $group: {
                     _id: '$_id',
@@ -221,7 +221,7 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limitNumber))
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         const sanitizedOrders = orders.map(sanitizeOrder)
 
@@ -230,8 +230,8 @@ export const getOrders = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNumber),
-                pageSize: Number(limitNumber),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -248,16 +248,16 @@ export const getOrdersCurrentUser = async (
 
         const safeQuery=sanitizeQueryParams(req.query);
         const userId = res.locals.user._id
-        const pageNumber = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNumber = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
         const searchTerm = safeQuery.search;
         const safeSearch = sanitizeSearch(searchTerm);
         const searchRegex = new RegExp(safeSearch, 'i');
         const searchNumber = Number(safeSearch);
         //const { limit, page, search, ...otherParams } = safeQuery;
         const options = {
-            skip: (Number(pageNumber) - 1) * Number(limitNumber),
-            limit: Number(limitNumber),
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const user = await User.findById(userId)
@@ -303,7 +303,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limitNumber))
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -314,8 +314,8 @@ export const getOrdersCurrentUser = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNumber),
-                pageSize: Number(limitNumber),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -415,10 +415,6 @@ export const createOrder = async (
         const { address, payment, phone, total, email, items, comment } =
             cleanOrderData
 
-        const cleanPhone = sanitizeSearch(phone);
-        /* const { address, payment, phone, total, email, items, comment } =
-            req.body */
-
         if (!Array.isArray(items) || items.length === 0) {
             return next(new BadRequestError('Нет товаров для заказа'))
         }
@@ -448,7 +444,7 @@ export const createOrder = async (
             totalAmount: total,
             products: items,
             payment,
-            phone:cleanPhone,
+            phone,
             email,
             comment,
             customer: userId,
@@ -500,7 +496,7 @@ export const updateOrder = async (
             )
             .populate(['customer', 'products'])
         
-        const sanitizedOrder=sanitizeOrder(updateOrder)
+        const sanitizedOrder=sanitizeOrder(updatedOrder)
         return res.status(200).json(sanitizedOrder)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -536,7 +532,7 @@ export const deleteOrder = async (
             )
             .populate(['customer', 'products'])
 
-        const sanitizedOrder=sanitizeOrder(deleteOrder);    
+        const sanitizedOrder=sanitizeOrder(deletedOrder);    
         return res.status(200).json(sanitizedOrder)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
