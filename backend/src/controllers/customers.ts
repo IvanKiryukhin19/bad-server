@@ -1,8 +1,18 @@
 import { NextFunction, Request, Response } from 'express'
-import { FilterQuery } from 'mongoose'
+import { FilterQuery, Types } from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
+import {sanitizeUser} from '../middlewares/sanitize/sanitizeUser'
+import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
+import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
+import { sanitizeOrder } from 'middlewares/sanitize/sanitizeOrder'
+
+enum Role {
+    Admin = 'admin',
+    User = 'customer'
+}
 
 // TODO: Добавить guard admin
 // eslint-disable-next-line max-len
@@ -13,9 +23,29 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
+        const user = res.locals.user;
+
+        if (!user.roles.includes(Role.Admin)) {
+            const currentUser = await User.findById(user._id)
+                .select('-password')
+                .populate(['orders', 'lastOrder'])
+                .orFail(() => new NotFoundError('Пользователь не найден'));
+            
+            const sanitizedUser = sanitizeUser(currentUser);
+            
+            return res.status(200).json({
+                customers: [sanitizedUser],
+                pagination: {
+                    totalUsers: 1,
+                    totalPages: 1,
+                    currentPage: 1,
+                    pageSize: 1,
+                },
+            });
+        }
+
+        const safeQuery=sanitizeQueryParams(req.query);    
         const {
-            page = 1,
-            limit = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             registrationDateFrom,
@@ -27,18 +57,21 @@ export const getCustomers = async (
             orderCountFrom,
             orderCountTo,
             search,
-        } = req.query
+        } = safeQuery
+
+        const page = Math.max(1, parseInt(safeQuery.page as string) || 1);
+        const limit = Math.min(10, Math.max(1, parseInt(safeQuery.limit as string) || 10));
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
-        if (registrationDateFrom) {
+        if (registrationDateFrom && typeof registrationDateFrom === 'string') {
             filters.createdAt = {
                 ...filters.createdAt,
                 $gte: new Date(registrationDateFrom as string),
             }
         }
 
-        if (registrationDateTo) {
+        if (registrationDateTo && typeof registrationDateTo === 'string') {
             const endOfDay = new Date(registrationDateTo as string)
             endOfDay.setHours(23, 59, 59, 999)
             filters.createdAt = {
@@ -47,14 +80,14 @@ export const getCustomers = async (
             }
         }
 
-        if (lastOrderDateFrom) {
+        if (lastOrderDateFrom && typeof lastOrderDateFrom === 'string') {
             filters.lastOrderDate = {
                 ...filters.lastOrderDate,
                 $gte: new Date(lastOrderDateFrom as string),
             }
         }
 
-        if (lastOrderDateTo) {
+        if (lastOrderDateTo && typeof lastOrderDateTo === 'string') {
             const endOfDay = new Date(lastOrderDateTo as string)
             endOfDay.setHours(23, 59, 59, 999)
             filters.lastOrderDate = {
@@ -91,8 +124,9 @@ export const getCustomers = async (
             }
         }
 
-        if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
+        if (search && typeof search === 'string') {
+            const safeSearch = sanitizeSearch(search)
+            const searchRegex = new RegExp(safeSearch as string, 'i')
             const orders = await Order.find(
                 {
                     $or: [{ deliveryAddress: searchRegex }],
@@ -111,7 +145,8 @@ export const getCustomers = async (
         const sort: { [key: string]: any } = {}
 
         if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+            const safeSortField = cleanHtml(sortField as string)
+            sort[safeSortField as string] = sortOrder === 'desc' ? -1 : 1
         }
 
         const options = {
@@ -138,9 +173,10 @@ export const getCustomers = async (
 
         const totalUsers = await User.countDocuments(filters)
         const totalPages = Math.ceil(totalUsers / Number(limit))
-
+        const sanitizedUsers = users.map(sanitizeUser)
+        
         res.status(200).json({
-            customers: users,
+            customers: sanitizedUsers,
             pagination: {
                 totalUsers,
                 totalPages,
@@ -161,11 +197,29 @@ export const getCustomerById = async (
     next: NextFunction
 ) => {
     try {
-        const user = await User.findById(req.params.id).populate([
+        const safeQuery=sanitizeQueryParams(req.params);
+        const {id}=safeQuery;
+        const user=res.locals.user; 
+
+        if (!Types.ObjectId.isValid(id)) {
+            return next(new NotFoundError('Невалидный ID пользователя'))
+        }
+
+        if (!user.roles.includes(Role.Admin) && user._id.toString() !== id) {
+            return next(new NotFoundError('Пользователь не найден'));
+        }
+        
+        const foundedUser = await User.findById(id).populate([
             'orders',
             'lastOrder',
-        ])
-        res.status(200).json(user)
+        ]);
+        
+        if (!foundedUser) {
+            return next(new NotFoundError('Пользователь не найден'));
+        }
+
+        const sanitizedUser=sanitizeUser(foundedUser)
+        res.status(200).json(sanitizedUser)
     } catch (error) {
         next(error)
     }
@@ -179,9 +233,27 @@ export const updateCustomer = async (
     next: NextFunction
 ) => {
     try {
+        const safeParams=sanitizeQueryParams(req.params);
+        const {id}=safeParams;
+        const safeQuery=sanitizeQueryParams(req.body);
+        const user=res.locals.user; 
+
+        if (!Types.ObjectId.isValid(id)) {
+            return next(new NotFoundError('Невалидный ID пользователя'))
+        }
+
+        if (!user.roles.includes(Role.Admin) && user._id.toString() !== id) {
+            return next(new NotFoundError('Пользователь не найден'));
+        }
+
+        const updatedData: any = {}
+        if (req.body.name) updatedData.name = cleanHtml(req.body.name.trim())
+        if (req.body.phone) updatedData.phone = cleanHtml(req.body.phone.trim())
+        if (req.body.email) updatedData.email = cleanHtml(req.body.email.trim())
+
         const updatedUser = await User.findByIdAndUpdate(
-            req.params.id,
-            req.body,
+            id,
+            updatedData,
             {
                 new: true,
             }
@@ -193,7 +265,9 @@ export const updateCustomer = async (
                     )
             )
             .populate(['orders', 'lastOrder'])
-        res.status(200).json(updatedUser)
+
+        const sanitazedUser=sanitizeUser(updatedUser)    
+        res.status(200).json(sanitizeUser)
     } catch (error) {
         next(error)
     }
@@ -207,13 +281,27 @@ export const deleteCustomer = async (
     next: NextFunction
 ) => {
     try {
-        const deletedUser = await User.findByIdAndDelete(req.params.id).orFail(
+        const safeParams=sanitizeQueryParams(req.params)
+        const {id}=safeParams
+        const user=res.locals.user; 
+
+        if (!Types.ObjectId.isValid(id)) {
+            return next(new NotFoundError('Невалидный ID пользователя'))
+        }
+
+        if (!user.roles.includes(Role.Admin) && user._id.toString() !== id) {
+            return next(new NotFoundError('Пользователь не найден'));
+        }
+
+        const deletedUser = await User.findByIdAndDelete(id).orFail(
             () =>
                 new NotFoundError(
                     'Пользователь по заданному id отсутствует в базе'
                 )
         )
-        res.status(200).json(deletedUser)
+
+        const sanitizedUser=sanitizeUser(deletedUser)
+        res.status(200).json(sanitizedUser)
     } catch (error) {
         next(error)
     }
