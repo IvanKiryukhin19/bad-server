@@ -415,6 +415,7 @@ export const createOrder = async (
         const { address, payment, phone, total, email, items, comment } =
             cleanOrderData
 
+        const cleanPhone = sanitizeSearch(phone);
         /* const { address, payment, phone, total, email, items, comment } =
             req.body */
 
@@ -447,7 +448,7 @@ export const createOrder = async (
             totalAmount: total,
             products: items,
             payment,
-            phone,
+            phone:cleanPhone,
             email,
             comment,
             customer: userId,
