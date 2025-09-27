@@ -11,6 +11,7 @@ import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
 import rateLimit from 'express-rate-limit'
 //import { limiter } from './middlewares/limiter'
+import mongoSanitize from 'express-mongo-sanitize'
 
 const { PORT = 3000 } = process.env
 const app = express()
@@ -39,6 +40,7 @@ app.use(
 app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '10mb' }))
 app.use(urlencoded({ extended: true, limit: '10mb' }))
+app.use(mongoSanitize())
 
 app.use(routes)
 app.use(errors())
