@@ -29,7 +29,7 @@ app.use(
 
 app.use(
     cors({
-        origin: ['http://localhost','http://localhost:3000','http://localhost:5173'],
+        origin: 'http://localhost',
         credentials: true,
         allowedHeaders: ['Content-Type', 'Authorization'],
         methods: ['GET', 'POST', 'PATCH', 'DELETE'] 
