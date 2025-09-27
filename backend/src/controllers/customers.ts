@@ -7,7 +7,6 @@ import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams
 import {sanitizeUser} from '../middlewares/sanitize/sanitizeUser'
 import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
-import { sanitizeOrder } from 'middlewares/sanitize/sanitizeOrder'
 
 enum Role {
     Admin = 'admin',

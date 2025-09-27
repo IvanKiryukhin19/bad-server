@@ -28,8 +28,8 @@ export const getOrders = async (
 
         const user=res.locals.user;
         const safeQuery=sanitizeQueryParams(req.query);
-        const pageNumber = Math.max(1, parseInt(safeQuery.page as string) || 1);
-        const limitNumber = Math.min(10, Math.max(1, parseInt(safeQuery.limit as string) || 10));
+        const pageNumber = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limitNumber = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
         const searchTerm = safeQuery.search;
         const safeSearch = sanitizeSearch(searchTerm);
         const searchRegex = new RegExp(safeSearch, 'i');
@@ -248,8 +248,8 @@ export const getOrdersCurrentUser = async (
 
         const safeQuery=sanitizeQueryParams(req.query);
         const userId = res.locals.user._id
-        const pageNumber = Math.max(1, parseInt(safeQuery.page as string) || 1);
-        const limitNumber = Math.min(5, Math.max(1, parseInt(safeQuery.limit as string) || 5));
+        const pageNumber = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limitNumber = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
         const searchTerm = safeQuery.search;
         const safeSearch = sanitizeSearch(searchTerm);
         const searchRegex = new RegExp(safeSearch, 'i');
