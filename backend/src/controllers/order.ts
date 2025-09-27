@@ -204,8 +204,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (Number(pageNumber) - 1) * Number(limitNumber) },
+            { $limit: Number(limitNumber) },
             {
                 $group: {
                     _id: '$_id',
@@ -221,7 +221,7 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / Number(limitNumber))
 
         const sanitizedOrders = orders.map(sanitizeOrder)
 
@@ -230,8 +230,8 @@ export const getOrders = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: Number(pageNumber),
+                pageSize: Number(limitNumber),
             },
         })
     } catch (error) {
