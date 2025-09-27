@@ -6,7 +6,7 @@ import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import {sanitizeAggregationFilters} from '../middlewares/sanitize/sanitizeAggregationParams'
-import { sanitizeQueryParams } from 'middlewares/sanitize/sanitizeQueryParams'
+import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
