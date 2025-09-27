@@ -5,7 +5,8 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
-import sanitizeAggregationFilters from '../middlewares/sanitize/sanitizeAggregationParams'
+import {sanitizeAggregationFilters} from '../middlewares/sanitize/sanitizeAggregationParams'
+import { sanitizeQueryParams } from 'middlewares/sanitize/sanitizeQueryParams'
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
@@ -30,7 +31,8 @@ export const getOrders = async (
         const page=Math.max(1, parseInt(req.query.page as string)||1)
         const limit=Math.min(10, parseInt(req.query.limit as string)||10)
 
-
+        const safeQuery=sanitizeQueryParams(req.query)
+        const searchTerm=safeQuery.search
         const filters: FilterQuery<Partial<IOrder>> = {}
 
         if (status) {
@@ -70,7 +72,7 @@ export const getOrders = async (
             }
         }
 
-        const safeFilters = sanitizeAggregationFilters(filters);
+        const safeFilters = sanitizeAggregationFilters(filters);   
 
         const aggregatePipeline: any[] = [
             { $match: safeFilters },
@@ -94,9 +96,11 @@ export const getOrders = async (
             { $unwind: '$products' },
         ]
 
-        if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
-            const searchNumber = Number(search)
+
+        if (searchTerm && typeof searchTerm === 'string') {
+            const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const searchRegex = new RegExp(safeSearch, 'i')
+            const searchNumber = Number(safeSearch)
 
             const searchConditions: any[] = [{ 'products.title': searchRegex }]
 

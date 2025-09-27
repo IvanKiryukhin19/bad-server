@@ -1,6 +1,6 @@
 import BadRequestError from '../../errors/bad-request-error'
 
-function sanitizeAggregationFilters(filters: any): any {
+export const sanitizeAggregationFilters=(filters: any): any => {
     if (!filters || typeof filters !== 'object') return filters;
             
     const sanitized: any = {};
@@ -29,4 +29,3 @@ function sanitizeAggregationFilters(filters: any): any {
     return sanitized;
 };
 
-export default sanitizeAggregationFilters
