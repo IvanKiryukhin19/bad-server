@@ -8,6 +8,7 @@ import User from '../models/user'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
 import { sanitizeOrder } from '../middlewares/sanitize/sanitizeOrder'
 import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
+import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
 
 enum Role {
   Admin = 'admin',
@@ -35,7 +36,7 @@ enum Role {
 } */
 
 // Новая функция для санитизации query параметров
-const sanitizeQueryParams = (query: any): any => {
+/* const sanitizeQueryParams = (query: any): any => {
   const sanitized: any = {};
   
   for (const [key, value] of Object.entries(query)) {
@@ -54,7 +55,7 @@ const sanitizeQueryParams = (query: any): any => {
   }
   
   return sanitized;
-};
+}; */
 
 const sanitizeAggregationFilters = (filters: any): any => {
   if (!filters || typeof filters !== 'object') return filters;
