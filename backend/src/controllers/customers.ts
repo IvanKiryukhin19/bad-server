@@ -1,9 +1,15 @@
 import { NextFunction, Request, Response } from 'express'
-import { FilterQuery } from 'mongoose'
+import { FilterQuery, Types} from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import { sanitizeUser } from '../middlewares/sanitize/sanitizeUser'
+import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
 
+enum Role {
+  Admin = 'admin',
+  Customer = 'customer'
+}
 // TODO: Добавить guard admin
 // eslint-disable-next-line max-len
 // Get GET /customers?page=2&limit=5&sort=totalAmount&order=desc&registrationDateFrom=2023-01-01&registrationDateTo=2023-12-31&lastOrderDateFrom=2023-01-01&lastOrderDateTo=2023-12-31&totalAmountFrom=100&totalAmountTo=1000&orderCountFrom=1&orderCountTo=10
@@ -13,6 +19,26 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
+        const user = res.locals.user;
+
+        if (!user.roles.includes(Role.Admin)) {
+            const currentUser = await User.findById(user._id)
+                .select('-password')
+                .populate(['orders', 'lastOrder'])
+                .orFail(() => new NotFoundError('Пользователь не найден'));
+            
+            return res.status(200).json({
+                customers: [currentUser],
+                pagination: {
+                    totalUsers: 1,
+                    totalPages: 1,
+                    currentPage: 1,
+                    pageSize: 1,
+                },
+            });
+        }
+
+        const safeQuery=sanitizeQueryParams(req.query)    
         const {
             sortField = 'createdAt',
             sortOrder = 'desc',
@@ -25,7 +51,7 @@ export const getCustomers = async (
             orderCountFrom,
             orderCountTo,
             search,
-        } = req.query
+        } = safeQuery
 
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
         const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
@@ -162,10 +188,26 @@ export const getCustomerById = async (
     next: NextFunction
 ) => {
     try {
+        const { id } = sanitizeQueryParams(req.params)
+        const userLocal = res.locals.user;
+
+        if (!Types.ObjectId.isValid(id)) {
+            return next(new NotFoundError('Невалидный ID пользователя'))
+        }
+
+        if (!userLocal.roles.includes(Role.Admin) && userLocal._id.toString() !== id) {
+            return next(new NotFoundError('Пользователь не найден'));
+        }
+
         const user = await User.findById(req.params.id).populate([
             'orders',
             'lastOrder',
         ])
+
+        if (!user) {
+            return next(new NotFoundError('Пользователь не найден'));
+        }
+
         res.status(200).json(user)
     } catch (error) {
         next(error)
@@ -180,9 +222,21 @@ export const updateCustomer = async (
     next: NextFunction
 ) => {
     try {
+        const { id } = sanitizeQueryParams(req.params)
+
+         if (!Types.ObjectId.isValid(id)) {
+            return next(new NotFoundError('Невалидный ID пользователя'))
+        }
+
+        const safeParams = sanitizeQueryParams(req.body)
+       /*  const updateData: any = {}
+        if (safeParams.name) updateData.name = safeParams.name
+        if (req.body.phone) updates.phone = xss(req.body.phone.trim())
+        if (req.body.email) updates.email = xss(req.body.email.trim()) */
+
         const updatedUser = await User.findByIdAndUpdate(
-            req.params.id,
-            req.body,
+            id,
+            safeParams,
             {
                 new: true,
             }
@@ -208,7 +262,13 @@ export const deleteCustomer = async (
     next: NextFunction
 ) => {
     try {
-        const deletedUser = await User.findByIdAndDelete(req.params.id).orFail(
+        const { id } = sanitizeQueryParams(req.params)
+
+        if (!Types.ObjectId.isValid(id)) {
+            return next(new NotFoundError('Невалидный ID пользователя'))
+        }
+
+        const deletedUser = await User.findByIdAndDelete(id).orFail(
             () =>
                 new NotFoundError(
                     'Пользователь по заданному id отсутствует в базе'
