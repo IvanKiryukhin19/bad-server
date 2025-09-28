@@ -7,6 +7,7 @@ import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
 import { sanitizeOrder } from '../middlewares/sanitize/sanitizeOrder'
+import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
 
 enum Role {
   Admin = 'admin',
@@ -25,13 +26,13 @@ enum Role {
   }
 } */
 
-const sanitizeSearch = (input: string): string => {
+/* const sanitizeSearch = (input: string): string => {
   return input
   .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   .replace(/\\/g, '\\\\')
   .replace(/'/g, '\\\'')
   .replace(/"/g, '\\"')
-}
+} */
 
 // Новая функция для санитизации query параметров
 const sanitizeQueryParams = (query: any): any => {
