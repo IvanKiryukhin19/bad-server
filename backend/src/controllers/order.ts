@@ -9,6 +9,7 @@ import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
 import { sanitizeOrder } from '../middlewares/sanitize/sanitizeOrder'
 import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
 import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
+import { sanitizeAggregationFilters } from '../middlewares/sanitize/sanitizeAggregationParams'
 
 enum Role {
   Admin = 'admin',
@@ -57,7 +58,7 @@ enum Role {
   return sanitized;
 }; */
 
-const sanitizeAggregationFilters = (filters: any): any => {
+/* const sanitizeAggregationFilters = (filters: any): any => {
   if (!filters || typeof filters !== 'object') return filters;
   
   const sanitized: any = {};
@@ -83,7 +84,7 @@ const sanitizeAggregationFilters = (filters: any): any => {
   }
   
   return sanitized;
-};
+}; */
 
 // GET /orders
 export const getOrders = async (
