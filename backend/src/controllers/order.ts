@@ -127,10 +127,10 @@ export const getOrders = async (
         // Используем санитизированные значения
         //const searchTerm = safeQuery.search;
         //const safeStatus = safeQuery.status;
-        const safeTotalAmountFrom = safeQuery.totalAmountFrom;
-        const safeTotalAmountTo = safeQuery.totalAmountTo;
-        const safeOrderDateFrom = safeQuery.orderDateFrom;
-        const safeOrderDateTo = safeQuery.orderDateTo;
+        //const safeTotalAmountFrom = safeQuery.totalAmountFrom;
+        //const safeTotalAmountTo = safeQuery.totalAmountTo;
+        //const safeOrderDateFrom = safeQuery.orderDateFrom;
+        //const safeOrderDateTo = safeQuery.orderDateTo;
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
@@ -143,32 +143,32 @@ export const getOrders = async (
         } */
 
         // Безопасная фильтрация по сумме
-        if (safeTotalAmountFrom) {
+        if (totalAmountFrom) {
             filters.totalAmount = {
                 ...filters.totalAmount,
-                $gte: Number(safeTotalAmountFrom),
+                $gte: Number(totalAmountFrom),
             }
         }
 
-        if (safeTotalAmountTo) {
+        if (totalAmountTo) {
             filters.totalAmount = {
                 ...filters.totalAmount,
-                $lte: Number(safeTotalAmountTo),
+                $lte: Number(totalAmountTo),
             }
         }
 
         // Безопасная фильтрация по дате
-        if (safeOrderDateFrom && typeof safeOrderDateFrom === 'string') {
+        if (orderDateFrom && typeof orderDateFrom === 'string') {
             filters.createdAt = {
                 ...filters.createdAt,
-                $gte: new Date(safeOrderDateFrom),
+                $gte: new Date(orderDateFrom),
             }
         }
 
-        if (safeOrderDateTo && typeof safeOrderDateTo === 'string') {
+        if (orderDateTo && typeof orderDateTo === 'string') {
             filters.createdAt = {
                 ...filters.createdAt,
-                $lte: new Date(safeOrderDateTo),
+                $lte: new Date(orderDateTo),
             }
         }
 
