@@ -327,10 +327,10 @@ export const getOrdersCurrentUser = async (
         orders = orders.slice(options.skip, options.skip + options.limit)
 
         // XSS защита
-        const sanitizedOrders = orders.map(sanitizeOrder)
+        //const sanitizedOrders = orders.map(sanitizeOrder)
 
         return res.send({
-            orders: sanitizedOrders,
+            orders: orders,
             pagination: {
                 totalOrders,
                 totalPages,
@@ -473,7 +473,7 @@ export const createOrder = async (
         await populateOrder.save()
 
         // XSS защита при отправке
-        return res.status(200).json((populateOrder)
+        return res.status(200).json(populateOrder)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
             return next(new BadRequestError(error.message))
