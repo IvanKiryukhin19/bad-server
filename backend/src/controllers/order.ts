@@ -26,8 +26,8 @@ export const getOrders = async (
     try {
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверка прав доступа
         const user = res.locals.user;
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
         const safeQuery = sanitizeQueryParams(req.query);
         const searchTerm = safeQuery.search;
         
@@ -45,7 +45,7 @@ export const getOrders = async (
             
             // Безопасный поиск для пользователя
             if (searchTerm && typeof searchTerm === 'string') {
-                const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const safeSearch = escapeRegExp(searchTerm);
                 const searchRegex = new RegExp(safeSearch, 'i');
                 const searchNumber = Number(safeSearch);
                 
@@ -65,10 +65,10 @@ export const getOrders = async (
                 
                 // Пагинация
                 const totalOrders = filteredOrders.length;
-                const totalPages = Math.ceil(totalOrders / limitNum);
+                const totalPages = Math.ceil(totalOrders / limit);
                 filteredOrders = filteredOrders.slice(
-                    (pageNum - 1) * limitNum,
-                    pageNum * limitNum
+                    (page - 1) * limit,
+                    page * limit
                 );
                 
                 //const sanitizedOrders = filteredOrders.map(sanitizeOrder);
@@ -78,8 +78,8 @@ export const getOrders = async (
                     pagination: {
                         totalOrders,
                         totalPages,
-                        currentPage: pageNum,
-                        pageSize: limitNum,
+                        currentPage: page,
+                        pageSize: limit,
                     },
                 });
             }
@@ -87,11 +87,11 @@ export const getOrders = async (
             // Если нет поиска, просто возвращаем заказы пользователя
             const userOrders = await Order.find(userFilters)
                 .populate(['customer', 'products'])
-                .skip((pageNum - 1) * limitNum)
-                .limit(limitNum);
+                .skip((page - 1) * limit)
+                .limit(limit);
             
             const totalOrders = await Order.countDocuments(userFilters);
-            const totalPages = Math.ceil(totalOrders / limitNum);
+            const totalPages = Math.ceil(totalOrders / limit);
             
             //const sanitizedOrders = userOrders.map(sanitizeOrder);
             
@@ -100,8 +100,8 @@ export const getOrders = async (
                 pagination: {
                     totalOrders,
                     totalPages,
-                    currentPage: pageNum,
-                    pageSize: limitNum,
+                    currentPage: Number(page),
+                    pageSize: Number(limit),
                 },
             });
         }
@@ -109,8 +109,8 @@ export const getOrders = async (
         //const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
         //const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
         
-        const { limit, page, search, ...otherParams } = req.query;
-        const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
+        //const { limit, page, search, ...otherParams } = req.query;
+        //const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
         
         const {
             sortField = 'createdAt',
@@ -120,7 +120,7 @@ export const getOrders = async (
             totalAmountTo,
             orderDateFrom,
             orderDateTo,
-        } = req.query
+        } = sanitizeQueryParams(req.query)
 
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Санитизируем все query параметры
         //const safeQuery = sanitizeQueryParams(req.query);
@@ -226,8 +226,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(pageNum) - 1) * Number(limitNum) },
-            { $limit: Number(limitNum) },
+            { $skip: (Number(page) - 1) * Number(limit) },
+            { $limit: Number(limit) },
             {
                 $group: {
                     _id: '$_id',
@@ -245,16 +245,13 @@ export const getOrders = async (
         const totalOrders = await Order.countDocuments(filters)
         const totalPages = Math.ceil(totalOrders / Number(limit))
 
-        // XSS защита при отправке
-        //const sanitizedOrders = orders.map(sanitizeOrder)
-
         res.status(200).json({
             orders: orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNum),
-                pageSize: Number(limitNum),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -268,17 +265,17 @@ export const getOrdersCurrentUser = async (
     next: NextFunction
 ) => {
     try {
-        const { limit, page, search, ...otherParams } = req.query;
+        const { search, ...otherParams } = req.query;
         const safeQuery = sanitizeQueryParams(req.query);
 
         const userId = res.locals.user._id
         const searchTerm = safeQuery.search;
 
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
         const options = {
-            skip: (Number(pageNum) - 1) * Number(limitNum),
-            limit: Number(limitNum),
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const user = await User.findById(userId)
@@ -322,20 +319,17 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limitNum))
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
-
-        // XSS защита
-        //const sanitizedOrders = orders.map(sanitizeOrder)
 
         return res.send({
             orders: orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNum),
-                pageSize: Number(limitNum),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -364,7 +358,6 @@ export const getOrderByNumber = async (
                     )
             )
         
-        // XSS защита
         return res.status(200).json(order)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
@@ -401,7 +394,6 @@ export const getOrderCurrentUserByNumber = async (
             )
         }
         
-        // XSS защита
         return res.status(200).json(order)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
@@ -422,7 +414,6 @@ export const createOrder = async (
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
         
-        // XSS защита входных данных
         const { address, payment, phone, total, email, items, comment } = req.body
         const sanitizedAddress = cleanHtml(address.trim())
         const sanitizedPhone = cleanHtml(phone.trim())
@@ -472,7 +463,6 @@ export const createOrder = async (
         const populateOrder = await newOrder.populate(['customer', 'products'])
         await populateOrder.save()
 
-        // XSS защита при отправке
         return res.status(200).json(populateOrder)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -515,7 +505,6 @@ export const updateOrder = async (
             )
             .populate(['customer', 'products'])
         
-        // XSS защита при отправке
         return res.status(200).json(updatedOrder)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -551,7 +540,6 @@ export const deleteOrder = async (
             )
             .populate(['customer', 'products'])
         
-        // XSS защита при отправке
         return res.status(200).json(deletedOrder)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
