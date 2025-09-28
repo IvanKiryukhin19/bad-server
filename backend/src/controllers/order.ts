@@ -95,7 +95,7 @@ export const getOrders = async (
         // Если пользователь не админ, возвращаем ТОЛЬКО его заказы
         if (!user.roles.includes(Role.Admin)) {
             const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-            const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+            const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
             
             // Санитизируем query параметры
             const safeQuery = sanitizeQueryParams(req.query);
@@ -168,7 +168,7 @@ export const getOrders = async (
         }
 
         const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
         
         const { limit, page, search, ...otherParams } = req.query;
         const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
@@ -336,7 +336,7 @@ export const getOrdersCurrentUser = async (
         const searchTerm = safeQuery.search;
 
         const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
         const options = {
             skip: (Number(pageNum) - 1) * Number(limitNum),
             limit: Number(limitNum),
