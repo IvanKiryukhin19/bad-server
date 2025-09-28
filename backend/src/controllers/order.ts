@@ -6,6 +6,7 @@ import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
+import { sanitizeOrder } from 'middlewares/sanitize/sanitizeOrder'
 
 enum Role {
   Admin = 'admin',
@@ -13,7 +14,7 @@ enum Role {
 }
 
 // Функции для санитизации
-const sanitizeOrder = (order: any) => {
+/* const sanitizeOrder = (order: any) => {
   const orderObj = order.toObject ? order.toObject() : order
   return {
     ...orderObj,
@@ -22,7 +23,7 @@ const sanitizeOrder = (order: any) => {
     email: cleanHtml(orderObj.email),
     phone: cleanHtml(orderObj.phone)
   }
-}
+} */
 
 const sanitizeSearch = (input: string): string => {
   return input
