@@ -27,6 +27,8 @@ export const getOrders = async (
         const user = res.locals.user;
         const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
         const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+        const safeQuery = sanitizeQueryParams(req.query);
+        const searchTerm = safeQuery.search;
         
         // Если пользователь не админ, возвращаем ТОЛЬКО его заказы
         if (!user.roles.includes(Role.Admin)) {
@@ -34,8 +36,8 @@ export const getOrders = async (
             //const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
             
             // Санитизируем query параметры
-            const safeQuery = sanitizeQueryParams(req.query);
-            const searchTerm = safeQuery.search;
+            //const safeQuery = sanitizeQueryParams(req.query);
+            //const searchTerm = safeQuery.search;
             
             // Базовые фильтры для пользователя
             const userFilters: FilterQuery<Partial<IOrder>> = { customer: user._id };
@@ -120,11 +122,11 @@ export const getOrders = async (
         } = req.query
 
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Санитизируем все query параметры
-        const safeQuery = sanitizeQueryParams(req.query);
+        //const safeQuery = sanitizeQueryParams(req.query);
         
         // Используем санитизированные значения
-        const searchTerm = safeQuery.search;
-        const safeStatus = safeQuery.status;
+        //const searchTerm = safeQuery.search;
+        //const safeStatus = safeQuery.status;
         const safeTotalAmountFrom = safeQuery.totalAmountFrom;
         const safeTotalAmountTo = safeQuery.totalAmountTo;
         const safeOrderDateFrom = safeQuery.orderDateFrom;
@@ -133,12 +135,12 @@ export const getOrders = async (
         const filters: FilterQuery<Partial<IOrder>> = {}
 
         // Безопасная фильтрация статуса
-        if (safeStatus && typeof safeStatus === 'string') {
+        /* if (safeStatus && typeof safeStatus === 'string') {
             const validStatuses = ['new', 'completed', 'cancelled', 'delivering']
             if (validStatuses.includes(safeStatus)) {
                 filters.status = safeStatus
             }
-        }
+        } */
 
         // Безопасная фильтрация по сумме
         if (safeTotalAmountFrom) {
