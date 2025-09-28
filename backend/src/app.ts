@@ -1,15 +1,14 @@
 import rateLimit from 'express-rate-limit';
-
-
 import { errors } from 'celebrate'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import 'dotenv/config'
 import express, { json, urlencoded, Request, Response, NextFunction } from 'express'
 import mongoose from 'mongoose'
-//import ExpressMongoSanitize from 'express-mongo-sanitize'
+import mongoSanitize from 'express-mongo-sanitize'
+import helmet from 'helmet'
 import path from 'path'
-import { DB_ADDRESS, CORS_ORIGINS } from './config'
+import { DB_ADDRESS } from './config'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
@@ -29,11 +28,12 @@ app.use(limiter)
 
 app.use(
     cors({
-        origin: 'http://localhost:5173', // Разрешаем оба домена
+        origin: 'http://localhost:5173',
         credentials: true,
     })
 )
-
+app.use(mongoSanitize())
+app.use(helmet())
 app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '10mb' }))
 app.use(urlencoded({ extended: true, limit: '10mb' }))

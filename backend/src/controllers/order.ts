@@ -25,14 +25,15 @@ export const getOrders = async (
     try {
         const user = res.locals.user;
         const safeQuery=sanitizeQueryParams(req.query);
-        const page = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
+        
         const searchTerm = safeQuery.search;
         const safeSearch = sanitizeSearch(searchTerm);
         const searchRegex = new RegExp(safeSearch, 'i');
         const searchNumber = Number(safeSearch);
 
         if (!user.roles.includes(Role.Admin)) {
+            const page = Math.max(1, parseInt(req.query.page as string) || 1);
+            const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
             const userFilters: FilterQuery<Partial<IOrder>> = { customer: user._id };
             
             if (searchTerm && typeof searchTerm === 'string') {
@@ -92,8 +93,8 @@ export const getOrders = async (
             });
         }
 
-        //const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        //const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
         
         //const { limit, page, search, ...otherParams } = req.query;
         //const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
