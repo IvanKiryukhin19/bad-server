@@ -4,6 +4,7 @@ import validator from 'validator'
 import { PaymentType, phoneRegExp } from '../middlewares/validations'
 import Counter from './counter'
 import User from './user'
+import xss from 'xss'
 
 export enum StatusType {
     Cancelled = 'cancelled',
@@ -63,6 +64,7 @@ const orderSchema: Schema = new Schema(
                 validator: (v: string) => phoneRegExp.test(v),
                 message: 'Поле "phone" должно быть валидным телефоном.',
             },
+            set: (v: string) => xss(v.trim())
         },
         comment: {
             type: String,

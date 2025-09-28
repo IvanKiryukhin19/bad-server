@@ -1,9 +1,8 @@
 import { Joi, celebrate } from 'celebrate'
-import { Types } from 'mongoose'
+import mongoose, { Types } from 'mongoose'
 
 // eslint-disable-next-line no-useless-escape
-export const phoneRegExp = /^(\+\d+)?(?:\s|-?|\(?\d+\)?)+$/
-
+export const phoneRegExp = /^[\d\s\-\+\(\)]{10,15}$/
 export enum PaymentType {
     Card = 'card',
     Online = 'online',
@@ -92,8 +91,10 @@ export const validateObjId = celebrate({
         productId: Joi.string()
             .required()
             .custom((value, helpers) => {
-                if (Types.ObjectId.isValid(value)) {
-                    return value
+                if (mongoose.Types.ObjectId.isValid(value)) {
+                    if (String(new mongoose.Types.ObjectId(value)) === value) {
+                        return value
+                    }
                 }
                 return helpers.message({ any: 'Невалидный id' })
             }),
