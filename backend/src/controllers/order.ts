@@ -439,12 +439,6 @@ export const updateOrder = async (
 
         const { status } = req.body
         
-        // Валидация статуса
-/*         const validStatuses = ['new', 'completed', 'cancelled', 'delivering']
-        if (!validStatuses.includes(status)) {
-            return next(new BadRequestError('Невалидный статус заказа'))
-        } */
-
         const updatedOrder = await Order.findOneAndUpdate(
             { orderNumber },
             { status },
