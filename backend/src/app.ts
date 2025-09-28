@@ -32,8 +32,8 @@ app.use(
         credentials: true,
     })
 )
-app.use(mongoSanitize())
-app.use(helmet())
+//app.use(mongoSanitize())
+//app.use(helmet())
 app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '10mb' }))
 app.use(urlencoded({ extended: true, limit: '10mb' }))
