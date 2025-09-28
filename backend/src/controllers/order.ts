@@ -6,81 +6,15 @@ import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
+import { sanitizeOrder } from '../middlewares/sanitize/sanitizeOrder'
+import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
+import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
+import { sanitizeAggregationFilters } from '../middlewares/sanitize/sanitizeAggregationParams'
 
 enum Role {
   Admin = 'admin',
-  Customer = 'customer' // было User = 'user'
+  Customer = 'customer'
 }
-
-// Функции для санитизации
-const sanitizeOrder = (order: any) => {
-  const orderObj = order.toObject ? order.toObject() : order
-  return {
-    ...orderObj,
-    deliveryAddress: orderObj.deliveryAddress ? cleanHtml(orderObj.deliveryAddress) : '',
-    comment: orderObj.comment ? cleanHtml(orderObj.comment) : '',
-    email: cleanHtml(orderObj.email),
-    phone: cleanHtml(orderObj.phone)
-  }
-}
-
-const sanitizeSearch = (input: string): string => {
-  return input
-  .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  .replace(/\\/g, '\\\\')
-  .replace(/'/g, '\\\'')
-  .replace(/"/g, '\\"')
-}
-
-// Новая функция для санитизации query параметров
-const sanitizeQueryParams = (query: any): any => {
-  const sanitized: any = {};
-  
-  for (const [key, value] of Object.entries(query)) {
-    if (typeof value === 'string') {
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Защита от операторов $
-      if (value.startsWith('$')) {
-        throw new BadRequestError('Невалидный запрос');
-      }
-      sanitized[key] = sanitizeSearch(value);
-    } else if (typeof value === 'object' && value !== null) {
-      // Рекурсивная санитизация для объектов (защита от { $ne: null } и т.д.)
-      sanitized[key] = sanitizeQueryParams(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  
-  return sanitized;
-};
-
-const sanitizeAggregationFilters = (filters: any): any => {
-  if (!filters || typeof filters !== 'object') return filters;
-  
-  const sanitized: any = {};
-  
-  for (const [key, value] of Object.entries(filters)) {
-    // Защита от операторов $ в ключах
-    if (key.startsWith('$')) {
-      throw new BadRequestError('Невалидный запрос');
-    }
-    
-    if (typeof value === 'string') {
-      // Защита от операторов $ в значениях
-      if (value.startsWith('$')) {
-        throw new BadRequestError('Невалидный запрос');
-      }
-      sanitized[key] = value;
-    } else if (typeof value === 'object' && value !== null) {
-      // Рекурсивная санитизация для вложенных объектов
-      sanitized[key] = sanitizeAggregationFilters(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  
-  return sanitized;
-};
 
 // GET /orders
 export const getOrders = async (
@@ -89,27 +23,19 @@ export const getOrders = async (
     next: NextFunction
 ) => {
     try {
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверка прав доступа
         const user = res.locals.user;
-        
-        // Если пользователь не админ, возвращаем ТОЛЬКО его заказы
+        const safeQuery=sanitizeQueryParams(req.query);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
+        const searchTerm = safeQuery.search;
+        const safeSearch = sanitizeSearch(searchTerm);
+        const searchRegex = new RegExp(safeSearch, 'i');
+        const searchNumber = Number(safeSearch);
+
         if (!user.roles.includes(Role.Admin)) {
-            const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-            const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
-            
-            // Санитизируем query параметры
-            const safeQuery = sanitizeQueryParams(req.query);
-            const searchTerm = safeQuery.search;
-            
-            // Базовые фильтры для пользователя
             const userFilters: FilterQuery<Partial<IOrder>> = { customer: user._id };
             
-            // Безопасный поиск для пользователя
             if (searchTerm && typeof searchTerm === 'string') {
-                const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const searchRegex = new RegExp(safeSearch, 'i');
-                const searchNumber = Number(safeSearch);
-                
                 const products = await Product.find({ title: searchRegex });
                 const productIds: Types.ObjectId[] = products.map((product) => product._id as Types.ObjectId);
                 
@@ -126,10 +52,10 @@ export const getOrders = async (
                 
                 // Пагинация
                 const totalOrders = filteredOrders.length;
-                const totalPages = Math.ceil(totalOrders / limitNum);
+                const totalPages = Math.ceil(totalOrders / limit);
                 filteredOrders = filteredOrders.slice(
-                    (pageNum - 1) * limitNum,
-                    pageNum * limitNum
+                    (page - 1) * limit,
+                    page * limit
                 );
                 
                 const sanitizedOrders = filteredOrders.map(sanitizeOrder);
@@ -139,20 +65,19 @@ export const getOrders = async (
                     pagination: {
                         totalOrders,
                         totalPages,
-                        currentPage: pageNum,
-                        pageSize: limitNum,
+                        currentPage: Number(page),
+                        pageSize: Number(limit),
                     },
                 });
             }
             
-            // Если нет поиска, просто возвращаем заказы пользователя
             const userOrders = await Order.find(userFilters)
                 .populate(['customer', 'products'])
-                .skip((pageNum - 1) * limitNum)
-                .limit(limitNum);
+                .skip((page - 1) * limit)
+                .limit(limit);
             
             const totalOrders = await Order.countDocuments(userFilters);
-            const totalPages = Math.ceil(totalOrders / limitNum);
+            const totalPages = Math.ceil(totalOrders / limit);
             
             const sanitizedOrders = userOrders.map(sanitizeOrder);
             
@@ -161,17 +86,17 @@ export const getOrders = async (
                 pagination: {
                     totalOrders,
                     totalPages,
-                    currentPage: pageNum,
-                    pageSize: limitNum,
+                    currentPage: Number(page),
+                    pageSize: Number(limit),
                 },
             });
         }
 
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        //const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
+        //const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
         
-        const { limit, page, search, ...otherParams } = req.query;
-        const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
+        //const { limit, page, search, ...otherParams } = req.query;
+        //const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
         
         const {
             sortField = 'createdAt',
@@ -181,56 +106,52 @@ export const getOrders = async (
             totalAmountTo,
             orderDateFrom,
             orderDateTo,
-        } = req.query
+        } = safeQuery
 
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Санитизируем все query параметры
-        const safeQuery = sanitizeQueryParams(req.query);
-        
-        // Используем санитизированные значения
-        const searchTerm = safeQuery.search;
-        const safeStatus = safeQuery.status;
-        const safeTotalAmountFrom = safeQuery.totalAmountFrom;
-        const safeTotalAmountTo = safeQuery.totalAmountTo;
-        const safeOrderDateFrom = safeQuery.orderDateFrom;
-        const safeOrderDateTo = safeQuery.orderDateTo;
+        //const searchTerm = safeQuery.search;
+        //const safeStatus = safeQuery.status;
+        //const safeTotalAmountFrom = safeQuery.totalAmountFrom;
+        //const safeTotalAmountTo = safeQuery.totalAmountTo;
+        //const safeOrderDateFrom = safeQuery.orderDateFrom;
+        //const safeOrderDateTo = safeQuery.orderDateTo;
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
         // Безопасная фильтрация статуса
-        if (safeStatus && typeof safeStatus === 'string') {
+        if (status && typeof status === 'string') {
             const validStatuses = ['new', 'completed', 'cancelled', 'delivering']
-            if (validStatuses.includes(safeStatus)) {
-                filters.status = safeStatus
+            if (validStatuses.includes(status)) {
+                filters.status = status
             }
         }
 
         // Безопасная фильтрация по сумме
-        if (safeTotalAmountFrom) {
+        if (totalAmountFrom) {
             filters.totalAmount = {
                 ...filters.totalAmount,
-                $gte: Number(safeTotalAmountFrom),
+                $gte: Number(totalAmountFrom),
             }
         }
 
-        if (safeTotalAmountTo) {
+        if (totalAmountTo) {
             filters.totalAmount = {
                 ...filters.totalAmount,
-                $lte: Number(safeTotalAmountTo),
+                $lte: Number(totalAmountTo),
             }
         }
 
         // Безопасная фильтрация по дате
-        if (safeOrderDateFrom && typeof safeOrderDateFrom === 'string') {
+        if (orderDateFrom && typeof orderDateFrom === 'string') {
             filters.createdAt = {
                 ...filters.createdAt,
-                $gte: new Date(safeOrderDateFrom),
+                $gte: new Date(orderDateFrom),
             }
         }
 
-        if (safeOrderDateTo && typeof safeOrderDateTo === 'string') {
+        if (orderDateTo && typeof orderDateTo === 'string') {
             filters.createdAt = {
                 ...filters.createdAt,
-                $lte: new Date(safeOrderDateTo),
+                $lte: new Date(orderDateTo),
             }
         }
 
@@ -261,9 +182,9 @@ export const getOrders = async (
 
         // Безопасный поиск
         if (searchTerm && typeof searchTerm === 'string') {
-            const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const searchRegex = new RegExp(safeSearch, 'i')
-            const searchNumber = Number(safeSearch)
+            //const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            //const searchRegex = new RegExp(safeSearch, 'i')
+            //const searchNumber = Number(safeSearch)
 
             const searchConditions: any[] = [{ 'products.title': searchRegex }]
 
@@ -287,8 +208,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(pageNum) - 1) * Number(limitNum) },
-            { $limit: Number(limitNum) },
+            { $skip: (Number(page) - 1) * Number(limit) },
+            { $limit: Number(limit) },
             {
                 $group: {
                     _id: '$_id',
@@ -314,8 +235,8 @@ export const getOrders = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNum),
-                pageSize: Number(limitNum),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -329,17 +250,17 @@ export const getOrdersCurrentUser = async (
     next: NextFunction
 ) => {
     try {
-        const { limit, page, search, ...otherParams } = req.query;
-        const safeQuery = sanitizeQueryParams(req.query);
-
+        const safeQuery=sanitizeQueryParams(req.query);
         const userId = res.locals.user._id
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
         const searchTerm = safeQuery.search;
-
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const safeSearch = sanitizeSearch(searchTerm);
+        const searchRegex = new RegExp(safeSearch, 'i');
+        const searchNumber = Number(safeSearch);
         const options = {
-            skip: (Number(pageNum) - 1) * Number(limitNum),
-            limit: Number(limitNum),
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const user = await User.findById(userId)
@@ -364,9 +285,9 @@ export const getOrdersCurrentUser = async (
         let orders = user.orders as unknown as IOrder[]
 
         if (searchTerm && typeof searchTerm === 'string') {
-            const safeSearch = sanitizeSearch(searchTerm)
-            const searchRegex = new RegExp(safeSearch, 'i')
-            const searchNumber = Number(safeSearch)
+            //const safeSearch = sanitizeSearch(searchTerm)
+            //const searchRegex = new RegExp(safeSearch, 'i')
+            //const searchNumber = Number(safeSearch)
             const products = await Product.find({ title: searchRegex })
             const productIds = products.map((product) => product._id)
 
@@ -383,7 +304,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limitNum))
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -395,8 +316,8 @@ export const getOrdersCurrentUser = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNum),
-                pageSize: Number(limitNum),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -483,12 +404,14 @@ export const createOrder = async (
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
         
-        // XSS защита входных данных
-        const { address, payment, phone, total, email, items, comment } = req.body
-        const sanitizedAddress = cleanHtml(address.trim())
-        const sanitizedPhone = cleanHtml(phone.trim())
-        const sanitizedEmail = cleanHtml(email.trim())
-        const sanitizedComment = comment ? cleanHtml(comment.trim()) : ''
+       const cleanOrderData: { [key: string]: any } ={}
+        for (let prop in req.body) {
+            cleanOrderData[prop]=cleanHtml(req.body[prop])
+        }
+
+        const { address, payment, phone, total, email, items, comment } =
+            cleanOrderData
+
 
         // Валидация items
         if (!Array.isArray(items) || items.length === 0) {
@@ -523,11 +446,11 @@ export const createOrder = async (
             totalAmount: total,
             products: validItems,
             payment,
-            phone: sanitizedPhone,
-            email: sanitizedEmail,
-            comment: sanitizedComment,
+            phone,
+            email,
+            comment,
             customer: userId,
-            deliveryAddress: sanitizedAddress,
+            deliveryAddress: address,
         })
 
         const populateOrder = await newOrder.populate(['customer', 'products'])
