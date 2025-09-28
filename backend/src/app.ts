@@ -1,9 +1,8 @@
-import rateLimit from 'express-rate-limit';
 import { errors } from 'celebrate'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import 'dotenv/config'
-import express, { json, urlencoded, Request, Response, NextFunction } from 'express'
+import express, { json, urlencoded } from 'express'
 import mongoose from 'mongoose'
 import mongoSanitize from 'express-mongo-sanitize'
 import helmet from 'helmet'
@@ -12,18 +11,13 @@ import { DB_ADDRESS } from './config'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
+import { limiter } from '../src/middlewares/limiter'
 
 const { PORT = 3000 } = process.env
 const app = express()
 
 app.use(cookieParser())
 
-const limiter = rateLimit({
-    windowMs: 5 * 60 * 1000,
-    max: 50,
-    statusCode: 429,
-    message: 'The request limit is reached.',
-})
 app.use(limiter)
 
 app.use(
@@ -33,13 +27,12 @@ app.use(
     })
 )
 //app.use(mongoSanitize())
-//app.use(helmet())
+app.use(helmet())
 app.use(serveStatic(path.join(__dirname, 'public')))
-app.use(json({ limit: '10mb' }))
+app.use(json({ limit: '1mb' }))
 app.use(urlencoded({ extended: true, limit: '10mb' }))
 
 app.use(routes)
-
 
 app.use(errors())
 app.use(errorHandler)
