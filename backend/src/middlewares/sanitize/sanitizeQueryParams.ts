@@ -1,5 +1,6 @@
 import BadRequestError from '../../errors/bad-request-error'
-import { sanitizeSearch } from './sanitizeSearch';
+//import { sanitizeSearch } from './sanitizeSearch';
+import escapeRegExp from '../../utils/escapeRegExp';
 
 export const sanitizeQueryParams = (query: any): any => {
   const sanitizedData: any = {};
@@ -10,7 +11,7 @@ export const sanitizeQueryParams = (query: any): any => {
       if (value.startsWith('$')) {
         throw new BadRequestError('Невалидный запрос');
       }
-      sanitizedData[key] = sanitizeSearch(value);
+      sanitizedData[key] = escapeRegExp(value);
     } else if (typeof value === 'object' && value !== null) {
       // Рекурсивная санитизация для объектов
       sanitizedData[key] = sanitizeQueryParams(value);

@@ -7,9 +7,11 @@ import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
 import { sanitizeOrder } from '../middlewares/sanitize/sanitizeOrder'
-import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
+//import { sanitizeSearch } from '../middlewares/sanitize/sanitizeSearch'
 import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
 import { sanitizeAggregationFilters } from '../middlewares/sanitize/sanitizeAggregationParams'
+//import {escapeRegExp as sanitizeSearch} from '../utils/escapeRegExp'
+import escapeRegExp from '../utils/escapeRegExp'
 
 enum Role {
   Admin = 'admin',
@@ -25,10 +27,13 @@ export const getOrders = async (
     try {
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверка прав доступа
         const user = res.locals.user;
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
         const safeQuery = sanitizeQueryParams(req.query);
         const searchTerm = safeQuery.search;
+        const safeSearch=escapeRegExp(searchTerm)
+        const searchRegex = new RegExp(safeSearch, 'i');
+        const searchNumber = Number(safeSearch);
         
         // Если пользователь не админ, возвращаем ТОЛЬКО его заказы
         if (!user.roles.includes(Role.Admin)) {
@@ -44,9 +49,9 @@ export const getOrders = async (
             
             // Безопасный поиск для пользователя
             if (searchTerm && typeof searchTerm === 'string') {
-                const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const searchRegex = new RegExp(safeSearch, 'i');
-                const searchNumber = Number(safeSearch);
+                //const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                //const searchRegex = new RegExp(safeSearch, 'i');
+                //const searchNumber = Number(safeSearch);
                 
                 const products = await Product.find({ title: searchRegex });
                 const productIds: Types.ObjectId[] = products.map((product) => product._id as Types.ObjectId);
@@ -57,17 +62,16 @@ export const getOrders = async (
                     const matchesProduct = order.products.some(product => 
                         productIds.some((id: Types.ObjectId) => id.equals(product._id))
                     );
-                    const matchesOrderNumber = !Number.isNaN(searchNumber) && 
-                                             order.orderNumber === searchNumber;
+                    const matchesOrderNumber = !Number.isNaN(searchNumber) && order.orderNumber === searchNumber;
                     return matchesProduct || matchesOrderNumber;
                 });
                 
                 // Пагинация
                 const totalOrders = filteredOrders.length;
-                const totalPages = Math.ceil(totalOrders / limitNum);
+                const totalPages = Math.ceil(totalOrders / limit);
                 filteredOrders = filteredOrders.slice(
-                    (pageNum - 1) * limitNum,
-                    pageNum * limitNum
+                    (page - 1) * limit,
+                    page * limit
                 );
                 
                 const sanitizedOrders = filteredOrders.map(sanitizeOrder);
@@ -77,8 +81,8 @@ export const getOrders = async (
                     pagination: {
                         totalOrders,
                         totalPages,
-                        currentPage: pageNum,
-                        pageSize: limitNum,
+                        currentPage: Number(page),
+                        pageSize: Number(limit),
                     },
                 });
             }
@@ -86,11 +90,11 @@ export const getOrders = async (
             // Если нет поиска, просто возвращаем заказы пользователя
             const userOrders = await Order.find(userFilters)
                 .populate(['customer', 'products'])
-                .skip((pageNum - 1) * limitNum)
-                .limit(limitNum);
+                .skip((page - 1) * limit)
+                .limit(limit);
             
             const totalOrders = await Order.countDocuments(userFilters);
-            const totalPages = Math.ceil(totalOrders / limitNum);
+            const totalPages = Math.ceil(totalOrders / limit);
             
             const sanitizedOrders = userOrders.map(sanitizeOrder);
             
@@ -99,8 +103,8 @@ export const getOrders = async (
                 pagination: {
                     totalOrders,
                     totalPages,
-                    currentPage: pageNum,
-                    pageSize: limitNum,
+                    currentPage: Number(page),
+                    pageSize: Number(limit),
                 },
             });
         }
@@ -108,8 +112,9 @@ export const getOrders = async (
         //const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
         //const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
         
-        const { limit, page, search, ...otherParams } = req.query;
-        const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
+        //const { limit, page, search } = req.query;
+        //const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
+        //const { limit, page, search } = sanitizeQueryParams(req.query);
         
         const {
             sortField = 'createdAt',
@@ -119,7 +124,7 @@ export const getOrders = async (
             totalAmountTo,
             orderDateFrom,
             orderDateTo,
-        } = req.query
+        } = safeQuery //req.query
 
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Санитизируем все query параметры
         //const safeQuery = sanitizeQueryParams(req.query);
@@ -199,9 +204,9 @@ export const getOrders = async (
 
         // Безопасный поиск
         if (searchTerm && typeof searchTerm === 'string') {
-            const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const searchRegex = new RegExp(safeSearch, 'i')
-            const searchNumber = Number(safeSearch)
+            //const safeSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            //const searchRegex = new RegExp(safeSearch, 'i')
+            //const searchNumber = Number(safeSearch)
 
             const searchConditions: any[] = [{ 'products.title': searchRegex }]
 
@@ -225,8 +230,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(pageNum) - 1) * Number(limitNum) },
-            { $limit: Number(limitNum) },
+            { $skip: (Number(page) - 1) * Number(limit) },
+            { $limit: Number(limit) },
             {
                 $group: {
                     _id: '$_id',
@@ -252,8 +257,8 @@ export const getOrders = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNum),
-                pageSize: Number(limitNum),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -267,17 +272,17 @@ export const getOrdersCurrentUser = async (
     next: NextFunction
 ) => {
     try {
-        const { limit, page, search, ...otherParams } = req.query;
+        //const { limit, page, search, ...otherParams } = req.query;
         const safeQuery = sanitizeQueryParams(req.query);
 
         const userId = res.locals.user._id
         const searchTerm = safeQuery.search;
 
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(10, parseInt(req.query.limit as string) || 10);
         const options = {
-            skip: (Number(pageNum) - 1) * Number(limitNum),
-            limit: Number(limitNum),
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const user = await User.findById(userId)
@@ -302,7 +307,7 @@ export const getOrdersCurrentUser = async (
         let orders = user.orders as unknown as IOrder[]
 
         if (searchTerm && typeof searchTerm === 'string') {
-            const safeSearch = sanitizeSearch(searchTerm)
+            const safeSearch = escapeRegExp(searchTerm)
             const searchRegex = new RegExp(safeSearch, 'i')
             const searchNumber = Number(safeSearch)
             const products = await Product.find({ title: searchRegex })
@@ -321,7 +326,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limitNum))
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -333,8 +338,8 @@ export const getOrdersCurrentUser = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(pageNum),
-                pageSize: Number(limitNum),
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -422,7 +427,7 @@ export const createOrder = async (
         const userId = res.locals.user._id
         
         // XSS защита входных данных
-        const { address, payment, phone, total, email, items, comment } = req.body
+        const { address, payment, phone, total, email, items, comment } = sanitizeQueryParams(req.body)
         const sanitizedAddress = cleanHtml(address.trim())
         const sanitizedPhone = cleanHtml(phone.trim())
         const sanitizedEmail = cleanHtml(email.trim())
