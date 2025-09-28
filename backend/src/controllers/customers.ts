@@ -3,7 +3,6 @@ import { FilterQuery, Types} from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
-import { sanitizeUser } from '../middlewares/sanitize/sanitizeUser'
 import { sanitizeQueryParams } from '../middlewares/sanitize/sanitizeQueryParams'
 
 enum Role {
@@ -229,11 +228,7 @@ export const updateCustomer = async (
         }
 
         const safeParams = sanitizeQueryParams(req.body)
-       /*  const updateData: any = {}
-        if (safeParams.name) updateData.name = safeParams.name
-        if (req.body.phone) updates.phone = xss(req.body.phone.trim())
-        if (req.body.email) updates.email = xss(req.body.email.trim()) */
-
+       
         const updatedUser = await User.findByIdAndUpdate(
             id,
             safeParams,

@@ -13,78 +13,8 @@ import { sanitizeAggregationFilters } from '../middlewares/sanitize/sanitizeAggr
 
 enum Role {
   Admin = 'admin',
-  Customer = 'customer' // было User = 'user'
+  Customer = 'customer'
 }
-
-// Функции для санитизации
-/* const sanitizeOrder = (order: any) => {
-  const orderObj = order.toObject ? order.toObject() : order
-  return {
-    ...orderObj,
-    deliveryAddress: orderObj.deliveryAddress ? cleanHtml(orderObj.deliveryAddress) : '',
-    comment: orderObj.comment ? cleanHtml(orderObj.comment) : '',
-    email: cleanHtml(orderObj.email),
-    phone: cleanHtml(orderObj.phone)
-  }
-} */
-
-/* const sanitizeSearch = (input: string): string => {
-  return input
-  .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  .replace(/\\/g, '\\\\')
-  .replace(/'/g, '\\\'')
-  .replace(/"/g, '\\"')
-} */
-
-// Новая функция для санитизации query параметров
-/* const sanitizeQueryParams = (query: any): any => {
-  const sanitized: any = {};
-  
-  for (const [key, value] of Object.entries(query)) {
-    if (typeof value === 'string') {
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Защита от операторов $
-      if (value.startsWith('$')) {
-        throw new BadRequestError('Невалидный запрос');
-      }
-      sanitized[key] = sanitizeSearch(value);
-    } else if (typeof value === 'object' && value !== null) {
-      // Рекурсивная санитизация для объектов (защита от { $ne: null } и т.д.)
-      sanitized[key] = sanitizeQueryParams(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  
-  return sanitized;
-}; */
-
-/* const sanitizeAggregationFilters = (filters: any): any => {
-  if (!filters || typeof filters !== 'object') return filters;
-  
-  const sanitized: any = {};
-  
-  for (const [key, value] of Object.entries(filters)) {
-    // Защита от операторов $ в ключах
-    if (key.startsWith('$')) {
-      throw new BadRequestError('Невалидный запрос');
-    }
-    
-    if (typeof value === 'string') {
-      // Защита от операторов $ в значениях
-      if (value.startsWith('$')) {
-        throw new BadRequestError('Невалидный запрос');
-      }
-      sanitized[key] = value;
-    } else if (typeof value === 'object' && value !== null) {
-      // Рекурсивная санитизация для вложенных объектов
-      sanitized[key] = sanitizeAggregationFilters(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  
-  return sanitized;
-}; */
 
 // GET /orders
 export const getOrders = async (
@@ -95,11 +25,13 @@ export const getOrders = async (
     try {
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверка прав доступа
         const user = res.locals.user;
+        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
         
         // Если пользователь не админ, возвращаем ТОЛЬКО его заказы
         if (!user.roles.includes(Role.Admin)) {
-            const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-            const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+            //const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
+            //const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
             
             // Санитизируем query параметры
             const safeQuery = sanitizeQueryParams(req.query);
@@ -171,8 +103,8 @@ export const getOrders = async (
             });
         }
 
-        const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
+        //const pageNum = Math.max(1, parseInt(req.query.page as string) || 1);
+        //const limitNum = Math.min(10, parseInt(req.query.limit as string) || 10);
         
         const { limit, page, search, ...otherParams } = req.query;
         const sanitizedQuery = sanitizeQueryParams({ limit, page, search });
