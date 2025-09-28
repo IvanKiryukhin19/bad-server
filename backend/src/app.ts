@@ -26,7 +26,7 @@ app.use(
         credentials: true,
     })
 )
-//app.use(mongoSanitize())
+app.use(mongoSanitize())
 app.use(helmet())
 app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '1mb' }))
