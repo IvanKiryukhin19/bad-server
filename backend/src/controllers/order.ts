@@ -6,7 +6,7 @@ import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import { cleanHtml } from '../middlewares/sanitize/sanitizeHtml'
-import { sanitizeOrder } from 'middlewares/sanitize/sanitizeOrder'
+import { sanitizeOrder } from '../middlewares/sanitize/sanitizeOrder'
 
 enum Role {
   Admin = 'admin',
