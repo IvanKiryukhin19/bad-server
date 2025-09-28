@@ -4,7 +4,6 @@ import cors from 'cors'
 import 'dotenv/config'
 import express, { json, urlencoded } from 'express'
 import mongoose from 'mongoose'
-import mongoSanitize from 'express-mongo-sanitize'
 import helmet from 'helmet'
 import path from 'path'
 import { DB_ADDRESS } from './config'
@@ -26,7 +25,6 @@ app.use(
         credentials: true,
     })
 )
-app.use(mongoSanitize())
 app.use(helmet())
 app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(json({ limit: '1mb' }))
