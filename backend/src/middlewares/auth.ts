@@ -12,9 +12,11 @@ import UserModel, { Role } from '../models/user'
 const auth = async (req: Request, res: Response, next: NextFunction) => {
     let payload: JwtPayload | null = null
     const authHeader = req.header('Authorization')
+    
     if (!authHeader?.startsWith('Bearer ')) {
-        throw new UnauthorizedError('Невалидный токен')
+        return next(new UnauthorizedError('Невалидный токен'))
     }
+    
     try {
         const accessTokenParts = authHeader.split(' ')
         const aTkn = accessTokenParts[1]
@@ -34,8 +36,11 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
 
         return next()
     } catch (error) {
-        if (error instanceof Error && error.name === 'TokenExpiredError') {
+        if (error instanceof jwt.TokenExpiredError) {
             return next(new UnauthorizedError('Истек срок действия токена'))
+        }
+        if (error instanceof jwt.JsonWebTokenError) {
+            return next(new UnauthorizedError('Невалидный токен'))
         }
         return next(new UnauthorizedError('Необходима авторизация'))
     }
@@ -56,6 +61,7 @@ export function roleGuardMiddleware(...roles: Role[]) {
         }
 
         return next()
+        
     }
 }
 

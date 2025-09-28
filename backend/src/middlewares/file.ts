@@ -1,6 +1,12 @@
 import { Request, Express } from 'express'
 import multer, { FileFilterCallback } from 'multer'
-import { join } from 'path'
+import path, { join } from 'path'
+//import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs'
+
+const generateSafeName = () => {
+    return Date.now() + '-' + Math.round(Math.random() * 1E9) + '-' + Math.round(Math.random() * 1E9);
+};
 
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
@@ -11,7 +17,7 @@ const storage = multer.diskStorage({
         _file: Express.Multer.File,
         cb: DestinationCallback
     ) => {
-        cb(
+        /*cb(
             null,
             join(
                 __dirname,
@@ -19,7 +25,17 @@ const storage = multer.diskStorage({
                     ? `../public/${process.env.UPLOAD_PATH_TEMP}`
                     : '../public'
             )
-        )
+        )*/
+       // Используем абсолютный путь для надежности в Docker
+        const uploadDir = process.env.UPLOAD_PATH_TEMP || 'temp';
+        const fullPath = path.join(process.cwd(), 'public', uploadDir);
+        
+        // Создаем директорию если не существует
+        if (!fs.existsSync(fullPath)) {
+            fs.mkdirSync(fullPath, { recursive: true });
+        }
+        
+        cb(null, fullPath);
     },
 
     filename: (
@@ -27,7 +43,8 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        cb(null, file.originalname)
+        const safeName = `${generateSafeName()}${path.extname(file.originalname)}`;
+        cb(null, safeName);
     },
 })
 
@@ -44,11 +61,48 @@ const fileFilter = (
     file: Express.Multer.File,
     cb: FileFilterCallback
 ) => {
-    if (!types.includes(file.mimetype)) {
-        return cb(null, false)
+    const allowedMimes = [
+        'image/png',
+        'image/jpg',
+        'image/jpeg',
+        'image/gif',
+        'image/svg+xml',
+    ];
+
+    // Проверка MIME type
+    if (!allowedMimes.includes(file.mimetype)) {
+        return cb(null, false);
+    }
+
+    // Дополнительная проверка расширения файла
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExt = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
+    
+    if (!allowedExt.includes(ext)) {
+        return cb(null, false);
+    }
+
+    // Проверка соответствия MIME type и расширения
+    const mimeToExt: { [key: string]: string[] } = {
+        'image/png': ['.png'],
+        'image/jpg': ['.jpg'],
+        'image/jpeg': ['.jpg', '.jpeg'],
+        'image/gif': ['.gif'],
+        'image/svg+xml': ['.svg'],
+    };
+
+    if (mimeToExt[file.mimetype] && !mimeToExt[file.mimetype].includes(ext)) {
+        return cb(null, false);
     }
 
     return cb(null, true)
 }
 
-export default multer({ storage, fileFilter })
+export default multer({
+    storage,
+    fileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB максимум
+        files: 1, // не более 1 файла за раз
+    } 
+})

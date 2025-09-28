@@ -1,6 +1,6 @@
 import { unlink } from 'fs'
 import mongoose, { Document } from 'mongoose'
-import { join } from 'path'
+import path, { join } from 'path'
 
 export interface IFile {
     fileName: string
@@ -63,9 +63,12 @@ cardsSchema.pre('findOneAndUpdate', async function deleteOldImage() {
 
 // Можно лучше: удалять файл с изображением после удаление сущности
 cardsSchema.post('findOneAndDelete', async (doc: IProduct) => {
-    unlink(join(__dirname, `../public/${doc.image.fileName}`), (err) =>
-        console.log(err)
-    )
+    const safePath = path.resolve(__dirname, '../public', path.normalize(doc.image.fileName));
+    // Проверяем что путь остается внутри public директории
+    if (!safePath.startsWith(path.resolve(__dirname, '../public'))) {
+    return console.error('Path traversal attempt blocked');
+    }
+    unlink(safePath, (err) => console.error(err));
 })
 
 export default mongoose.model<IProduct>('product', cardsSchema)
